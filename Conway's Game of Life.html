@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="vue.js"></script>
+		<style>
+			body {
+			  background: black;
+			  padding: 20px;
+			  font-family: Helvetica;
+			}
+
+			#background {
+			  background: black;
+			  border-radius: 4px;
+			  padding: 20px;
+			  transition: all 0.2s;
+			  border: 1px solid green;
+			}
+			
+			h2 {
+			  color: white;
+			}
+			
+			table {
+			  background-color: black;
+			  border: 2px solid white;
+			  border-radius: 2px;
+			}
+
+			td {
+			  width: 15px;
+			  height: 15px;
+			  background-color: black;
+			  border: 1px solid black;
+			}
+			
+			.slider {
+			  background-color: black;
+			  color: white;
+			  border: 1px solid white;
+			  padding: 0.5%;
+			  border-radius: 4px;
+			}
+		</style>
+		<title>Conway's Game of Life</title>
+	</head>
+	<body>
+		<div id="background">
+			<div id="app">
+			</div>
+		</div>
+		<script>
+			var vm = new Vue({
+				el: '#app',
+				template: `
+					<div>
+						<center>
+							<h2>Conway's Game of Life</h2>
+							<input type="number" min="10" max="50" id="width" placeholder="Width" v-on:change="setSize"></input>
+							<input type="number" min="10" max="15" id="height" placeholder="Height" v-on:change="setSize"></input>
+							<br>
+							<br>
+							<div class="grid">
+								<table cellspacing="0">
+									<tr v-for="(row, i) in cells" v-bind:key="i">
+										<td v-for="(cell, j) in row" v-bind:key="j" v-on:click="toggle(i, j)" v-on:mouseover="draw(i, j)" :style="{ backgroundColor: cells[i][j] }"></td>
+									</tr>
+								</table>
+							</div>
+							<br>
+							<a class="slider">
+								<label>Speed:</label>
+								<input type="range" min="250" max="950" value="500" id="speed" v-on:mousemove="setTimeSpeed()"></input>
+							</a>
+							<button type="button" v-on:click="toggleTime">{{ timeButton }}</button>
+							<br>
+							<br>
+							<button :disabled="history.length < 1" v-on:click="undoStep">Undo Step</button>
+							<button type="button" v-on:click="step">Step</button>
+							<br>
+							<br>
+							<button type="button" v-on:click="clear">Clear</button>
+							<button type="button" v-on:click="randomize">Randomize</button>
+						</center>
+					</div>
+				`,
+				data: {
+					width: 35,
+					height: 35,
+					history: [],
+					cells: [],
+					timeButton: 'Play',
+					intervalId: -1,
+					mouseDrag: false
+				},
+				created: function() {
+					this.clear();
+				},
+				mounted: function() {
+					this.setTimeSpeed();
+					var vm = this;
+					window.addEventListener('mousedown', function() { vm.mouseDrag = true; });
+					window.addEventListener('mouseup', function() { vm.mouseDrag = false; });
+				},
+				methods: {
+					clear: function() {
+						var newCells = [];
+						for (var i = 0;i < this.height;i++) {
+							var row = [];
+							for (var j = 0;j < this.width;j++) {
+								row.push('black');
+							}
+							newCells.push(row);
+						}
+						this.cells = newCells;
+					},
+					randomize: function() {
+						var newCells = [];
+						for (var i = 0;i < this.height;i++) {
+							var row = [];
+							for (var j = 0;j < this.width;j++) {
+								row.push(Math.random() > 0.5 ? 'white' : 'black');
+							}
+							newCells.push(row);
+						}
+						this.cells = newCells;
+					},
+					draw: function(i, j) {
+						if (this.mouseDrag) {
+							this.toggle(i, j);
+						}
+					},
+					toggle: function(i, j) {
+						var newRow = this.cells[i];
+						if (newRow[j] === 'black') {
+							newRow[j] = 'white';
+						} else {
+							newRow[j] = 'black';
+						}
+						Vue.set(this.cells, i, newRow);
+					},
+					step: function() {
+						var newCells = [];
+						for (var i = 0;i < this.height;i++) {
+							var row = [];
+							for (var j = 0;j < this.width;j++) {
+								var surroundingCells = this.cells.length - 1 > i ? this.getSurroundingCells(i, j) : 0;
+								if (surroundingCells === 2) {
+									row.push(this.cells[i][j]);
+								} else if (surroundingCells === 3) {
+									row.push('white');
+								} else {
+									row.push('black');
+								}
+							}
+							newCells.push(row);
+						}
+						this.history.push(this.cells);
+						if (this.history.length > 10) {
+							this.history.shift();
+						}
+						this.cells = newCells;
+					},
+					undoStep: function() {
+						if (this.history.length > 0) {
+							this.cells = this.history[this.history.length - 1];
+							this.history.pop();
+						}
+					},
+					getSurroundingCells: function(i, j) {
+						var surroundingCells = 0;
+						if (i > 0 && this.cells[i-1][j] === 'white') {
+							surroundingCells++;
+						}
+						if (i < this.cells.length - 1 && this.cells[i+1][j] === 'white') {
+							surroundingCells++;
+						}
+						if (j > 0 && this.cells[i][j-1] === 'white') {
+							surroundingCells++;
+						}
+						if (j < this.width - 1 && this.cells[i][j+1] === 'white') {
+							surroundingCells++;
+						}
+
+						if (i > 0 && j > 0 && this.cells[i-1][j-1] === 'white') {
+							surroundingCells++;
+						}
+						if (i < this.cells.length - 1 && j > 0 && this.cells[i+1][j-1] === 'white') {
+							surroundingCells++;
+						}
+						if (i > 0 && j < this.width - 1 && this.cells[i-1][j+1] === 'white') {
+							surroundingCells++;
+						}
+						if (i < this.cells.length - 1 && j < this.width - 1 && this.cells[i+1][j+1] === 'white') {
+							surroundingCells++;
+						}
+						return surroundingCells;
+					},
+					toggleTime: function() {
+						if (this.timeButton === 'Play') {
+							this.timeButton = 'Pause';
+						} else {
+							this.timeButton = 'Play';
+						}
+					},
+					setTimeSpeed: function() {
+						if (this.intervalId != -1) {
+							window.clearInterval(this.intervalId);
+						}
+						this.intervalId = window.setInterval(function() {
+							if (vm.timeButton === 'Pause') {
+								vm.step();
+							}
+						}, parseInt(1000 - document.getElementById('speed').value));
+					},
+					setSize: function() {
+						this.width = parseInt(document.getElementById('width').value) || 10;
+						this.height = parseInt(document.getElementById('height').value) || 10;
+						var newCells = [];
+						for (var i = 0;i < this.height;i++) {
+							var row = [];
+							for (var j = 0;j < this.width;j++) {
+								row.push(this.cells.length - 1 > i ? this.cells[i][j] : 'black');
+							}
+							newCells.push(row);
+						}
+						this.cells = newCells;
+					}
+				}
+			});
+		</script>
+	</body>
+</html>
